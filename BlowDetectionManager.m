@@ -5,12 +5,33 @@
 //  Created by Chris Lueking on 6/28/11.
 //  Copyright 2011 Nomad Games, LLC. All rights reserved.
 //
+//created as a simple tool for monitoring blow detection.  
+//Baised on this tutorial - http://www.mobileorchard.com/tutorial-detecting-when-a-user-blows-into-the-mic/
+//
+//Permission is hereby granted, free of charge, to any person obtaining a copy
+//of this software and associated documentation files (the "Software"), to deal
+//in the Software without restriction, including without limitation the rights
+//to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//copies of the Software, and to permit persons to whom the Software is
+//furnished to do so, subject to the following conditions:
+//
+//The above copyright notice and this permission notice shall be included in
+//all copies or substantial portions of the Software.
+//
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+//THE SOFTWARE.
 
 #import "CDBlowDetectionManager.h"
 
 
 @implementation CDBlowDetectionManager
 
+//creates the singelton
 static CDBlowDetectionManager *sharedManager = nil;
 
 +(CDBlowDetectionManager*) sharedManager {
@@ -25,6 +46,7 @@ static CDBlowDetectionManager *sharedManager = nil;
 
 -(id)init{
     if((self=[super init])) {
+        //file set to /dev/null so that it will simply dump and only monitor
 		NSURL *url = [NSURL fileURLWithPath:@"/dev/null"];
         
         NSDictionary *settings = [NSDictionary dictionaryWithObjectsAndKeys:
@@ -42,6 +64,7 @@ static CDBlowDetectionManager *sharedManager = nil;
 	return self;
 }
 
+//to start listening
 -(void)startListening{
     if (_recorder) {
         [_recorder prepareToRecord];
@@ -50,21 +73,26 @@ static CDBlowDetectionManager *sharedManager = nil;
     }
 }
 
+//to stop listening
 -(void)stopListening{
     [_recorder stop];
 }
 
+//a debugging report
 -(void)logReport{
     NSLog(@"Average input in db: %f Peak input in db: %f - Power: %f Threshold Level: %f", [_recorder averagePowerForChannel:0], [_recorder peakPowerForChannel:0], _convertedPower * 100, _threshLvl);
 }
 
+//run this in your update method
 -(void)listen{
+    //experimental values at attempted power monitoring
+    //const double ALPHA = 0.05;
+    //_lowPassResults = ALPHA * _threshLvl + (1.0 - ALPHA) * _lowPassResults;
+    //NewValue = (((OldValue - OldMin) * (NewMax - NewMin)) / (OldMax - OldMin)) + NewMin
+    
     [_recorder updateMeters];
-	//const double ALPHA = 0.05;
     _threshLvl = pow(10, (0.05 * [_recorder peakPowerForChannel:0]));
     _avgMeter = pow(10, (0.05 * [_recorder averagePowerForChannel:0]));
-	//_lowPassResults = ALPHA * _threshLvl + (1.0 - ALPHA) * _lowPassResults;
-    //NewValue = (((OldValue - OldMin) * (NewMax - NewMin)) / (OldMax - OldMin)) + NewMin
     float avgAmbient = -35;
     _convertedPower = ((([_recorder peakPowerForChannel:0] - avgAmbient) * (1 - 0)) / (0. - avgAmbient)) + 0;
     if (_convertedPower < 0) {
@@ -75,6 +103,7 @@ static CDBlowDetectionManager *sharedManager = nil;
     }
 }
 
+//returns is a user is blowing into the mic
 -(BOOL)userIsBlowing{
     if (_threshLvl > _threshold) {
         return YES;
@@ -83,14 +112,15 @@ static CDBlowDetectionManager *sharedManager = nil;
     }
 }
 
+//returns the blowing power level
+//**experimental** seems to either return a very low number or 1(full blast)
+//needs to be tweaked to return middle powers
 -(float)power{
     if (_threshLvl > _threshold) {
         return _convertedPower;
     } else {
         return 0;
     }
-    
-    
 }
 
 @end
